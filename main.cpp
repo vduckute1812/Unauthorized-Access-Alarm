@@ -152,11 +152,11 @@ int main(int argc, char* argv[])
     //set detector svm
     hog.setSVMDetector(HOGDescriptor::getDefaultPeopleDetector());
 
-    //create GUI windows
-    namedWindow("Frame");
+    // //create GUI windows
+    // namedWindow("Frame");
     namedWindow("FG Mask MOG");
-    namedWindow("FG Mask MOG 2");
-    namedWindow("Differencing frame");
+    // namedWindow("FG Mask MOG 2");
+    // namedWindow("Differencing frame");
 
     //create Background Subtractor objects
     pMOG  = bgsegm::createBackgroundSubtractorMOG(); //MOG2 approach
@@ -197,7 +197,7 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
 
     // frame image
     int frame_count;
-
+    int alarm_flag = 0;
     if(!capture.isOpened()){
         //error in opening the video input
         cerr << "Unable to open video file: " << videoFilename << endl;
@@ -232,8 +232,33 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
         for( int i = 0; i< contours.size(); i++ )
         {
             boundRect = boundingRect( Mat(contours[i]) );
-            if(boundRect.height<50 || boundRect.width<20)
+            if(boundRect.height * boundRect.width < 1000 || boundRect.height * boundRect.width > 12000 || boundRect.width*2 >= frame.cols-1)
                 continue;
+            boundRect = getFrameForTest(boundRect, frame.rows, frame.cols);
+            Mat frameRecog (frame, boundRect);
+            resize(frameRecog, frameRecog, Size(50, 100));
+
+            cvtColor(frameRecog, frameRecog, COLOR_BGR2GRAY);
+
+            hog_2.compute(frameRecog, description);
+
+            Mat data = Mat(description).clone();
+            vector<Mat> detect;
+            Mat data_train;
+            detect.push_back(data);
+            convert_to_ml(detect, data_train);
+            alarm_flag+= svm->predict(data_train);
+
+            if(frame_count%20==0){
+                if(alarm_flag > 10){
+                    cout<<"Co nguoi dot nhap trai phep"<<endl;
+                }
+                alarm_flag=0;
+            }
+            // cout<<svm->predict(data_train)<<endl;   
+            detect.clear();
+
+
             rectangle( fgMaskMOG, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
         }
 
@@ -276,27 +301,11 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
                 boundRect = boundingRect( Mat(contours[i]) );
                 if(boundRect.height * boundRect.width < 1000 || boundRect.height * boundRect.width > 12000 || boundRect.width*2 >= frame.cols-1)
                     continue;
-                boundRect = getFrameForTest(boundRect, frame.rows, frame.cols);
-                Mat frameRecog (frame, boundRect);
-                resize(frameRecog, frameRecog, Size(50, 100));
-
-                cvtColor(frameRecog, frameRecog, COLOR_BGR2GRAY);
-
-                hog_2.compute(frameRecog, description);
-
-                Mat data = Mat(description).clone();
-                vector<Mat> detect;
-                Mat data_train;
-                detect.push_back(data);
-                convert_to_ml(detect, data_train);
-                // cout<<svm->predict(data_train)<<endl;   
-                detect.clear();
-
                 rectangle( diffFrame, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
             }
 
-            // cv::bitwise_not(diffFrame, diffFrame);
-            imshow("Differencing frame", diffFrame);
+            // // show the different frame
+            // imshow("Differencing frame", diffFrame);
         }
 
         //get the frame number and write it on the current frame
@@ -306,11 +315,11 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
                 FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
 
 
-        //show the current frame and the fg masks
-        detect_people(frame);
-        imshow( "Frame", frame);
+        // //show the current frame and the fg masks
+        // detect_people(frame);
+        // imshow( "Frame", frame);
         imshow( "FG Mask MOG"  , fgMaskMOG );
-        imshow( "FG Mask MOG 2", fgMaskMOG2);
+        // imshow( "FG Mask MOG 2", fgMaskMOG2);
 
         //get the input from the keyboard
         keyboard = (char)waitKey( 30 );
