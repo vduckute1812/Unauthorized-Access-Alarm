@@ -274,9 +274,9 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
             for( int i = 0; i< contours.size(); i++ )
             {
                 boundRect = boundingRect( Mat(contours[i]) );
-                boundRect = getFrameForTest(boundRect, frame.rows, frame.cols);
-                if(boundRect.height<100 || boundRect.width < 50)
+                if(boundRect.height * boundRect.width < 1000 || boundRect.height * boundRect.width > 12000 || boundRect.width*2 >= frame.cols-1)
                     continue;
+                boundRect = getFrameForTest(boundRect, frame.rows, frame.cols);
                 Mat frameRecog (frame, boundRect);
                 resize(frameRecog, frameRecog, Size(50, 100));
 
@@ -289,7 +289,7 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
                 Mat data_train;
                 detect.push_back(data);
                 convert_to_ml(detect, data_train);
-                cout<<svm->predict(data_train)<<endl;   
+                // cout<<svm->predict(data_train)<<endl;   
                 detect.clear();
 
                 rectangle( diffFrame, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
@@ -360,29 +360,19 @@ void getSubtract( Mat &img, Mat &dest){
 
 Rect getFrameForTest(const Rect& areaDet, int max_row, int max_col){
 
-    double ratio = areaDet.height/areaDet.width;
+    double ratio = (float)areaDet.height/areaDet.width;
     Rect areaRecog;
 
     if ( ratio < 2 ){
+
         int border = 2*areaDet.width - areaDet.height;
         areaRecog.x = areaDet.x;
         areaRecog.y = areaDet.y-border;
 
         if(areaDet.y-border < 0){
-            areaRecog.y=0;                
+            areaRecog.y = 0;
         }
 
-        if(areaDet.width*2 + areaRecog.y >= max_col){
-            areaRecog.y=max_col-1;
-        }
-
-        if(areaRecog   < 0){
-            areaRecog.x = 0;
-        }
-
-        if(areaRecog.x + areaDet.width >=  max_row){
-            areaRecog.x = max_row-1-areaRecog.width;
-        }
 
         areaRecog.width = areaDet.width;
         areaRecog.height = areaDet.width*2;
@@ -395,15 +385,17 @@ Rect getFrameForTest(const Rect& areaDet, int max_row, int max_col){
         if(areaDet.x - border < 0){
             areaRecog.x = 0;
         }
-        if(areaDet.x + border >=  max_row){
-            areaRecog.x -= border;
-        }
 
         areaRecog.y = areaDet.y;
 
-        areaRecog.width = areaDet.width+2*border;
+        areaRecog.width = areaDet.height/2;
         areaRecog.height = areaDet.height;
     }
+
+    // if(areaRecog.x < 0 || areaRecog.x >= max_col || areaRecog.y < 0 || areaRecog.y >= max_row
+    //     || areaRecog.x+areaRecog.width >= max_col || areaRecog.y+areaDet.height >= max_row){
+    //     return Rect(0,0,0,0);
+    // }
 
     return areaRecog;
 }
