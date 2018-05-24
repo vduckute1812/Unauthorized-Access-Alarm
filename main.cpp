@@ -16,8 +16,10 @@
 #include "camerasubtractor.h"
 #include "modelSVM.h"
 #include "findlinkpixel.h"
+#include "rs232.h"
 
 #include <opencv2/bgsegm.hpp>
+
 
 using namespace cv;
 using namespace std;
@@ -152,11 +154,11 @@ int main(int argc, char* argv[])
     //set detector svm
     hog.setSVMDetector(HOGDescriptor::getDefaultPeopleDetector());
 
-    // //create GUI windows
-    // namedWindow("Frame");
+    //create GUI windows
+    namedWindow("Frame");
     namedWindow("FG Mask MOG");
-    // namedWindow("FG Mask MOG 2");
-    // namedWindow("Differencing frame");
+    namedWindow("FG Mask MOG 2");
+    namedWindow("Differencing frame");
 
     //create Background Subtractor objects
     pMOG  = bgsegm::createBackgroundSubtractorMOG(); //MOG2 approach
@@ -180,7 +182,6 @@ int main(int argc, char* argv[])
 void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
     //create the capture object
     VideoCapture capture(videoFilename);
-
     Mat gx, gy; 
     Mat mag, angle; 
 
@@ -196,8 +197,9 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
     Rect boundRect;
 
     // frame image
-    int frame_count;
+    int frame_count = 0;
     int alarm_flag = 0;
+
     if(!capture.isOpened()){
         //error in opening the video input
         cerr << "Unable to open video file: " << videoFilename << endl;
@@ -206,6 +208,11 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
 
     //read input data. ESC or 'q' for quitting
     keyboard = 0;
+
+    // int num_port = RS232_GetPortnr("ttyUSB0");
+    // RS232_OpenComport(num_port, 9600, "8N1");
+    // bool checkAlarm = false;
+
     while( keyboard != 'q' && keyboard != 27 ){
 
         //read the current frame
@@ -249,9 +256,11 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
             convert_to_ml(detect, data_train);
             alarm_flag+= svm->predict(data_train);
 
-            if(frame_count%20==0){
-                if(alarm_flag > 10){
+            if(frame_count%25==0){
+                if(alarm_flag >= 15){
                     cout<<"Co nguoi dot nhap trai phep"<<endl;
+                    // RS232_cputs(num_port, "+0967817066#");
+                    // checkAlarm = true;
                 }
                 alarm_flag=0;
             }
@@ -270,6 +279,7 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
 
         //** Differencing frame */
         frame_count = atoi(frameNumberString.c_str());
+        // frame_count++;
 
         // First frame -> Train model
         if( frame_count <= NUM_TRAINING_FRAME ){
@@ -304,8 +314,8 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
                 rectangle( diffFrame, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
             }
 
-            // // show the different frame
-            // imshow("Differencing frame", diffFrame);
+            // show the different frame
+            imshow("Differencing frame", diffFrame);
         }
 
         //get the frame number and write it on the current frame
@@ -316,10 +326,10 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
 
 
         // //show the current frame and the fg masks
-        // detect_people(frame);
-        // imshow( "Frame", frame);
+        detect_people(frame);
+        imshow( "Frame", frame);
         imshow( "FG Mask MOG"  , fgMaskMOG );
-        // imshow( "FG Mask MOG 2", fgMaskMOG2);
+        imshow( "FG Mask MOG 2", fgMaskMOG2);
 
         //get the input from the keyboard
         keyboard = (char)waitKey( 30 );
