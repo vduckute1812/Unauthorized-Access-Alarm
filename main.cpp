@@ -157,8 +157,8 @@ int main(int argc, char* argv[])
     //create GUI windows
     namedWindow("Frame");
     namedWindow("FG Mask MOG");
-    namedWindow("FG Mask MOG 2");
-    namedWindow("Differencing frame");
+    // namedWindow("FG Mask MOG 2");
+    // namedWindow("Differencing frame");
 
     //create Background Subtractor objects
     pMOG  = bgsegm::createBackgroundSubtractorMOG(); //MOG2 approach
@@ -181,7 +181,14 @@ int main(int argc, char* argv[])
 */
 void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
     //create the capture object
-    VideoCapture capture(videoFilename);
+    VideoCapture capture;
+    if(isdigit(videoFilename[0])) {
+         capture.open(atoi(videoFilename.c_str()));
+    }
+    else{
+         capture.open(videoFilename);
+    }
+
     Mat gx, gy; 
     Mat mag, angle; 
 
@@ -209,9 +216,9 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
     //read input data. ESC or 'q' for quitting
     keyboard = 0;
 
-    // int num_port = RS232_GetPortnr("ttyUSB0");
-    // RS232_OpenComport(num_port, 9600, "8N1");
-    // bool checkAlarm = false;
+    int num_port = RS232_GetPortnr("ttyUSB0");
+    RS232_OpenComport(num_port, 9600, "8N1");
+    bool checkAlarm = false;
 
     while( keyboard != 'q' && keyboard != 27 ){
 
@@ -257,10 +264,10 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
             alarm_flag+= svm->predict(data_train);
 
             if(frame_count%25==0){
-                if(alarm_flag >= 15){
+                if(alarm_flag >= 15 && !checkAlarm){
                     cout<<"Co nguoi dot nhap trai phep"<<endl;
-                    // RS232_cputs(num_port, "+0967817066#");
-                    // checkAlarm = true;
+                    RS232_cputs(num_port, "+0967817066#");
+                    checkAlarm = true;
                 }
                 alarm_flag=0;
             }
@@ -271,65 +278,71 @@ void processVideo(String videoFilename,  const HOGDescriptor& hog_2) {
             rectangle( fgMaskMOG, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
         }
 
-        stringstream ss;
 
-        ss << capture.get(CAP_PROP_POS_FRAMES);
-        string frameNumberString = ss.str();
+        if(isdigit(videoFilename[0])){
+            frame_count++;
+        }
 
 
         //** Differencing frame */
-        frame_count = atoi(frameNumberString.c_str());
         // frame_count++;
 
-        // First frame -> Train model
-        if( frame_count <= NUM_TRAINING_FRAME ){
-            trainingImage(frame, frame_count);
+        // // First frame -> Train model
+        // if( frame_count <= NUM_TRAINING_FRAME ){
+        //     trainingImage(frame, frame_count);
+        // }
+        // // Train completed
+        // else{
+        //     if (!check_create_diff)
+        //     {
+        //         // Create a differncing frame model
+        //         createModelsfromStats();
+        //         check_create_diff = true;
+        //     }
+
+        //     getSubtract(frame, diffFrame);
+
+        //     Sobel(diffFrame, gx, CV_32F, 1, 0, 1);
+        //     Sobel(diffFrame, gy, CV_32F, 0, 1, 1);
+        //     cartToPolar(gx, gy, mag, angle, 1); 
+
+        //     normalize(mag, mag, 0, 255, NORM_MINMAX, CV_8UC1);
+
+        //     /// Find contours
+        //     findContours( mag, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
+
+        //     /// Draw contours
+        //     for( int i = 0; i< contours.size(); i++ )
+        //     {
+        //         boundRect = boundingRect( Mat(contours[i]) );
+        //         if(boundRect.height * boundRect.width < 1000 || boundRect.height * boundRect.width > 12000 || boundRect.width*2 >= frame.cols-1)
+        //             continue;
+        //         rectangle( diffFrame, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
+        //     }
+
+        //     // show the different frame
+        //     imshow("Differencing frame", diffFrame);
+        // }
+
+        if(strcmp(videoFilename.c_str(), "0") != 0){
+            stringstream ss;
+
+            ss << capture.get(CAP_PROP_POS_FRAMES);
+            string frameNumberString = ss.str();
+            frame_count = atoi(frameNumberString.c_str());
+
+            //get the frame number and write it on the current frame
+            rectangle(frame, cv::Point(10, 2), cv::Point(100,20),
+                      cv::Scalar(255,255,255), -1);
+            putText(frame, frameNumberString.c_str(), cv::Point(15, 15),
+                    FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
         }
-        // Train completed
-        else{
-            if (!check_create_diff)
-            {
-                // Create a differncing frame model
-                createModelsfromStats();
-                check_create_diff = true;
-            }
-
-            getSubtract(frame, diffFrame);
-
-            Sobel(diffFrame, gx, CV_32F, 1, 0, 1);
-            Sobel(diffFrame, gy, CV_32F, 0, 1, 1);
-            cartToPolar(gx, gy, mag, angle, 1); 
-
-            normalize(mag, mag, 0, 255, NORM_MINMAX, CV_8UC1);
-
-            /// Find contours
-            findContours( mag, contours, hierarchy, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE, Point(0, 0) );
-
-            /// Draw contours
-            for( int i = 0; i< contours.size(); i++ )
-            {
-                boundRect = boundingRect( Mat(contours[i]) );
-                if(boundRect.height * boundRect.width < 1000 || boundRect.height * boundRect.width > 12000 || boundRect.width*2 >= frame.cols-1)
-                    continue;
-                rectangle( diffFrame, boundRect.tl(), boundRect.br(), Scalar(255), 2, 8, 0 );
-            }
-
-            // show the different frame
-            imshow("Differencing frame", diffFrame);
-        }
-
-        //get the frame number and write it on the current frame
-        rectangle(frame, cv::Point(10, 2), cv::Point(100,20),
-                  cv::Scalar(255,255,255), -1);
-        putText(frame, frameNumberString.c_str(), cv::Point(15, 15),
-                FONT_HERSHEY_SIMPLEX, 0.5 , cv::Scalar(0,0,0));
-
 
         // //show the current frame and the fg masks
-        detect_people(frame);
+        // detect_people(frame);
         imshow( "Frame", frame);
         imshow( "FG Mask MOG"  , fgMaskMOG );
-        imshow( "FG Mask MOG 2", fgMaskMOG2);
+        // imshow( "FG Mask MOG 2", fgMaskMOG2);
 
         //get the input from the keyboard
         keyboard = (char)waitKey( 30 );
